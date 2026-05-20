@@ -7,3 +7,5 @@ lightgbm
 joblib
 imbalanced-learn
 openpyxl
+matplotlib
+seaborn
