@@ -15,9 +15,9 @@ st.set_page_config(
 )
 
 # ── FILE PATHS ─────────────────────────────────────────────────────────────────
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_PATH   = os.path.join(BASE_DIR, "..", "data", "cleaned", "master_dataset.csv")
-MODELS_PATH = os.path.join(BASE_DIR, "..", "models")
+# Streamlit Cloud mounts repo at /mount/src/tourism-analytics
+DATA_PATH   = "data/cleaned/master_dataset.csv"
+MODELS_PATH = "models"
 
 # ── LOAD DATA & MODELS ─────────────────────────────────────────────────────────
 @st.cache_data
@@ -33,9 +33,6 @@ def load_models():
     att_sim     = joblib.load(os.path.join(MODELS_PATH, "attraction_similarity.pkl"))
     scaler      = joblib.load(os.path.join(MODELS_PATH, "rec_scaler.pkl"))
     return reg_model, clf_model, le, user_matrix, att_sim, scaler
-
-df                                              = load_data()
-reg_model, clf_model, le, user_matrix, att_sim, scaler = load_models()
 
 # ── SIDEBAR ────────────────────────────────────────────────────────────────────
 st.sidebar.title("🌍 Tourism Analytics")
