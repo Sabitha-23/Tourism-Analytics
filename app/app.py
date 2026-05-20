@@ -15,7 +15,6 @@ st.set_page_config(
 )
 
 # ── FILE PATHS ─────────────────────────────────────────────────────────────────
-# Streamlit Cloud mounts repo at /mount/src/tourism-analytics
 DATA_PATH   = "data/cleaned/master_dataset.csv"
 MODELS_PATH = "models"
 
@@ -25,6 +24,15 @@ def load_data():
     return pd.read_csv(DATA_PATH)
 
 @st.cache_resource
+def load_models():
+    reg_model   = joblib.load(os.path.join(MODELS_PATH, "regression_model.pkl"))
+    clf_model   = joblib.load(os.path.join(MODELS_PATH, "classification_model.pkl"))
+    le          = joblib.load(os.path.join(MODELS_PATH, "label_encoder.pkl"))
+    user_matrix = joblib.load(os.path.join(MODELS_PATH, "user_item_matrix.pkl"))
+    att_sim     = joblib.load(os.path.join(MODELS_PATH, "attraction_similarity.pkl"))
+    scaler      = joblib.load(os.path.join(MODELS_PATH, "rec_scaler.pkl"))
+    return reg_model, clf_model, le, user_matrix, att_sim, scaler
+
 try:
     df = load_data()
 except Exception as e:
@@ -36,6 +44,7 @@ try:
 except Exception as e:
     st.error(f"❌ Failed to load models: {e}")
     st.stop()
+
 # ── SIDEBAR ────────────────────────────────────────────────────────────────────
 st.sidebar.title("🌍 Tourism Analytics")
 page = st.sidebar.selectbox("Navigate", [
@@ -52,10 +61,10 @@ if page == "🏠 Home":
     st.markdown("---")
 
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Total Visits",   f"{len(df):,}")
-    col2.metric("Unique Users",   f"{df['UserId'].nunique():,}")
-    col3.metric("Attractions",    f"{df['AttractionId'].nunique():,}")
-    col4.metric("Avg Rating",     f"{df['Rating'].mean():.2f}")
+    col1.metric("Total Visits",  f"{len(df):,}")
+    col2.metric("Unique Users",  f"{df['UserId'].nunique():,}")
+    col3.metric("Attractions",   f"{df['AttractionId'].nunique():,}")
+    col4.metric("Avg Rating",    f"{df['Rating'].mean():.2f}")
 
     st.markdown("---")
     st.markdown("""
@@ -75,7 +84,6 @@ elif page == "📊 EDA Dashboard":
 
     with tab1:
         col1, col2 = st.columns(2)
-
         with col1:
             st.subheader("Rating Distribution")
             fig, ax = plt.subplots()
@@ -97,7 +105,6 @@ elif page == "📊 EDA Dashboard":
 
     with tab2:
         col1, col2 = st.columns(2)
-
         with col1:
             st.subheader("Visit Mode Distribution")
             fig, ax = plt.subplots()
@@ -117,7 +124,6 @@ elif page == "📊 EDA Dashboard":
 
     with tab3:
         col1, col2 = st.columns(2)
-
         with col1:
             st.subheader("Visits by Continent")
             fig, ax = plt.subplots()
@@ -142,7 +148,6 @@ elif page == "⭐ Predict Rating":
     st.markdown("---")
 
     col1, col2 = st.columns(2)
-
     with col1:
         visit_year      = st.selectbox("Visit Year", sorted(df['VisitYear'].unique(), reverse=True))
         visit_month     = st.slider("Visit Month", 1, 12, 6)
@@ -155,15 +160,12 @@ elif page == "⭐ Predict Rating":
         user_avg_rating  = st.slider("Your Average Rating", 1.0, 5.0, 4.0, 0.1)
         user_visit_count = st.number_input("Your Visit Count", min_value=1, value=1)
 
-    # Get IDs from selections
     att_type_id  = df[df['AttractionType'] == attraction_type]['AttractionTypeId'].iloc[0]
     continent_id = df[df['Continent'] == continent]['ContinentId'].iloc[0]
     region_id    = df[df['Region'] == region]['RegionId'].iloc[0]
     country_id   = df[df['Country'] == country]['CountryId'].iloc[0]
-
-    # Use average attraction stats as proxy
-    att_avg = df['Attraction_Avg_Rating'].mean()
-    att_cnt = df['Attraction_Visit_Count'].mean()
+    att_avg      = df['Attraction_Avg_Rating'].mean()
+    att_cnt      = df['Attraction_Visit_Count'].mean()
 
     if st.button("⭐ Predict Rating", use_container_width=True):
         input_data = np.array([[
@@ -174,7 +176,6 @@ elif page == "⭐ Predict Rating":
         ]])
         prediction = reg_model.predict(input_data)[0]
         prediction = round(min(max(prediction, 1), 5), 2)
-
         st.markdown("---")
         st.success(f"### Predicted Rating: {'⭐' * round(prediction)}  {prediction} / 5")
 
@@ -184,7 +185,6 @@ elif page == "🧳 Predict Visit Mode":
     st.markdown("---")
 
     col1, col2 = st.columns(2)
-
     with col1:
         visit_year  = st.selectbox("Visit Year", sorted(df['VisitYear'].unique(), reverse=True))
         visit_month = st.slider("Visit Month", 1, 12, 6)
@@ -198,7 +198,6 @@ elif page == "🧳 Predict Visit Mode":
         user_avg_rating  = st.slider("Your Average Rating", 1.0, 5.0, 4.0, 0.1)
         user_visit_count = st.number_input("Your Visit Count", min_value=1, value=1)
 
-    # Get IDs from selections
     attraction_id   = df[df['Attraction'] == attraction]['AttractionId'].iloc[0]
     att_type_id     = df[df['Attraction'] == attraction]['AttractionTypeId'].iloc[0]
     continent_id    = df[df['Continent'] == continent]['ContinentId'].iloc[0]
@@ -222,7 +221,6 @@ elif page == "🧳 Predict Visit Mode":
             "Friends": "👫", "Solo": "🧍", "Business": "💼"
         }
         emoji = mode_emoji.get(mode, "🧳")
-
         st.markdown("---")
         st.success(f"### Predicted Visit Mode: {emoji} {mode}")
 
@@ -231,7 +229,6 @@ elif page == "🎯 Get Recommendations":
     st.title("🎯 Get Attraction Recommendations")
     st.markdown("---")
 
-    # Cast to int to match user_matrix index type
     user_id  = int(st.number_input("Enter User ID", min_value=1, value=70456))
     n_recs   = st.slider("Number of Recommendations", 3, 10, 5)
     rec_type = st.radio("Recommendation Type",
@@ -243,7 +240,6 @@ elif page == "🎯 Get Recommendations":
     def collaborative_filtering(user_id, n_recommendations=5):
         if user_id not in user_matrix.index:
             return None
-
         # Find top 50 similar users using cosine similarity
         similar_users = pd.Series(
             cosine_similarity([user_matrix.loc[user_id]], user_matrix)[0],
@@ -278,7 +274,6 @@ elif page == "🎯 Get Recommendations":
             {'AttractionId': k, 'Rating': np.mean(v)}
             for k, v in recommendations.items()
         ]).sort_values('Rating', ascending=False).head(n_recommendations)
-
         att_names = df[['AttractionId', 'Attraction', 'AttractionType']]\
             .drop_duplicates('AttractionId')
         return rec_df.merge(att_names, on='AttractionId')[
@@ -288,14 +283,12 @@ elif page == "🎯 Get Recommendations":
         # Get attractions visited by user with their ratings
         user_visited = df[df['UserId'] == user_id]\
             .groupby('AttractionId')['Rating'].mean()
-
         if user_visited.empty:
             return None
 
         # Find unvisited attractions
         visited_ids = user_visited.index.tolist()
         not_visited = [a for a in att_sim.index if a not in visited_ids]
-
         if not not_visited:
             return None
 
@@ -313,7 +306,6 @@ elif page == "🎯 Get Recommendations":
             {'AttractionId': k, 'Score': v}
             for k, v in scores.items()
         ]).sort_values('Score', ascending=False).head(n_recommendations)
-
         att_names = df[['AttractionId', 'Attraction',
                         'AttractionType', 'Attraction_Avg_Rating']]\
             .drop_duplicates('AttractionId')
