@@ -25,15 +25,17 @@ def load_data():
     return pd.read_csv(DATA_PATH)
 
 @st.cache_resource
-def load_models():
-    reg_model   = joblib.load(os.path.join(MODELS_PATH, "regression_model.pkl"))
-    clf_model   = joblib.load(os.path.join(MODELS_PATH, "classification_model.pkl"))
-    le          = joblib.load(os.path.join(MODELS_PATH, "label_encoder.pkl"))
-    user_matrix = joblib.load(os.path.join(MODELS_PATH, "user_item_matrix.pkl"))
-    att_sim     = joblib.load(os.path.join(MODELS_PATH, "attraction_similarity.pkl"))
-    scaler      = joblib.load(os.path.join(MODELS_PATH, "rec_scaler.pkl"))
-    return reg_model, clf_model, le, user_matrix, att_sim, scaler
+try:
+    df = load_data()
+except Exception as e:
+    st.error(f"❌ Failed to load data: {e}")
+    st.stop()
 
+try:
+    reg_model, clf_model, le, user_matrix, att_sim, scaler = load_models()
+except Exception as e:
+    st.error(f"❌ Failed to load models: {e}")
+    st.stop()
 # ── SIDEBAR ────────────────────────────────────────────────────────────────────
 st.sidebar.title("🌍 Tourism Analytics")
 page = st.sidebar.selectbox("Navigate", [
